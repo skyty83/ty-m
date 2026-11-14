@@ -48,10 +48,6 @@ const CACHE_TTL: Record<string, number> = {
 const resultCache = new Map<string, { at: number; value: unknown }>();
 const MAX_CACHE = 500;
 
-// 외부 API 가 응답하지 않을 때 화면이 오래 멈추지 않도록 짧은 타임아웃을 둔 axios 인스턴스를 플러그인에 제공
-const pluginAxios = axios.create({ timeout: 8000 });
-(pluginAxios as unknown as { default: unknown }).default = pluginAxios;
-
 async function loadPlugin(pluginUrl: string): Promise<PluginApi> {
   if (scriptCache[pluginUrl]) return scriptCache[pluginUrl];
   const scriptRes = await fetch(pluginUrl);
@@ -60,7 +56,7 @@ async function loadPlugin(pluginUrl: string): Promise<PluginApi> {
 
   const sandbox = {
     require: (moduleName: string) => {
-      if (moduleName === 'axios') return pluginAxios;
+      if (moduleName === 'axios') return axios;
       if (moduleName === 'crypto-js') return CryptoJs;
       if (moduleName === 'he') return he;
       throw new Error(`Module ${moduleName} not allowed in sandbox`);
