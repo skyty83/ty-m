@@ -25,10 +25,23 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// 일부 브라우저 확장(Bitdefender 등)이 hydration 전에 DOM 에 속성을 주입해 hydration 경고가 난다.
+// React 가 hydrate 하기 전에 해당 속성을 제거하고, 이후 추가되는 것도 지운다.
+const STRIP_EXTENSION_ATTRS = `(function(){
+  var A=['bis_skin_checked','bis_register'];
+  function clean(el){for(var i=0;i<A.length;i++){if(el.hasAttribute&&el.hasAttribute(A[i]))el.removeAttribute(A[i]);}}
+  function sweep(root){A.forEach(function(a){root.querySelectorAll('['+a+']').forEach(function(n){n.removeAttribute(a);});});}
+  new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='attributes')clean(m.target);else m.addedNodes.forEach(function(n){if(n.nodeType===1){clean(n);sweep(n);}});});})
+    .observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:A});
+})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN">
-      <body>
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS }} />
+      </head>
+      <body suppressHydrationWarning>
         <PlayerProvider>
           <div className="flex">
             <Sidebar />
