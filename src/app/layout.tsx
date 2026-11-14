@@ -1,28 +1,32 @@
 import type { Metadata, Viewport } from 'next';
+import { Geist, Noto_Sans_SC, Unbounded } from 'next/font/google';
 import './globals.css';
 import PlayerProvider from '@/components/PlayerProvider';
 import PlayerBar from '@/components/PlayerBar';
 import FullPlayer from '@/components/FullPlayer';
-import { TabBar, TopNav } from '@/components/Nav';
-import NowPanel from '@/components/NowPanel';
-import { Space_Grotesk } from 'next/font/google';
+import Header from '@/components/Nav';
+import Footer from '@/components/Footer';
 import PwaClient from '@/components/PwaClient';
 import Toast from '@/components/Toast';
 
-const grotesk = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-grotesk', display: 'swap' });
+// 与 vod-site 相同的字体组合: 拉丁/数字 Geist, 汉字 Noto Sans SC, 装饰性拉丁大字 Unbounded
+const latin = Geist({ subsets: ['latin'], display: 'swap', variable: '--font-latin' });
+const wide = Unbounded({ subsets: ['latin'], weight: ['600', '800'], display: 'swap', variable: '--font-wide' });
+const body = Noto_Sans_SC({ subsets: ['latin'], weight: ['400', '500', '700', '900'], display: 'swap', variable: '--font-body', preload: false });
 
 export const metadata: Metadata = {
-  title: { default: '听域 TY Music', template: '%s - 听域' },
-  description: '听榜单、找歌单、看歌词，随时随地听音乐',
-  applicationName: '听域',
-  appleWebApp: { capable: true, title: '听域', statusBarStyle: 'black-translucent' },
+  title: { default: '听域音乐 - 在线听歌', template: '%s - 听域音乐' },
+  description: '排行榜、歌单、歌手一站搜索，同步歌词，随时随地听音乐',
+  applicationName: '听域音乐',
+  appleWebApp: { capable: true, title: '听域音乐', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
+  referrer: 'no-referrer',
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f1f1ee' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0b' },
+    { media: '(prefers-color-scheme: light)', color: '#f6f6f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0c' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -30,30 +34,22 @@ export const viewport: Viewport = {
 };
 
 // 일부 브라우저 확장(Bitdefender 등)이 hydration 전에 DOM 에 속성을 주입해 hydration 경고가 난다.
-// React 가 hydrate 하기 전에 해당 속성을 제거하고, 이후 추가되는 것도 지운다.
-const STRIP_EXTENSION_ATTRS = `(function(){
-  var A=['bis_skin_checked','bis_register'];
-  function clean(el){for(var i=0;i<A.length;i++){if(el.hasAttribute&&el.hasAttribute(A[i]))el.removeAttribute(A[i]);}}
-  function sweep(root){A.forEach(function(a){root.querySelectorAll('['+a+']').forEach(function(n){n.removeAttribute(a);});});}
-  new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==='attributes')clean(m.target);else m.addedNodes.forEach(function(n){if(n.nodeType===1){clean(n);sweep(n);}});});})
-    .observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:A});
-})();`;
+const STRIP_EXTENSION_ATTRS = `(function(){var A=['bis_skin_checked','bis_register'];function s(r){A.forEach(function(a){r.querySelectorAll('['+a+']').forEach(function(n){n.removeAttribute(a)})})}s(document);new MutationObserver(function(m){m.forEach(function(x){var t=x.target;if(t.removeAttribute)A.forEach(function(a){t.removeAttribute(a)})})}).observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:A})})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={grotesk.variable} suppressHydrationWarning>
+    <html lang="zh-CN" className={`${latin.variable} ${body.variable} ${wide.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS }} />
       </head>
-      <body suppressHydrationWarning>
+      <body className="flex min-h-dvh flex-col" suppressHydrationWarning>
         <PlayerProvider>
-          <TopNav />
-          <div className="flex">
-            <main className="min-w-0 flex-1 pb-safe-player">{children}</main>
-            <NowPanel />
-          </div>
+          <Header />
+          <main className="flex-1 overflow-x-clip">{children}</main>
+          <Footer />
+          {/* 底部悬浮播放条占位 */}
+          <div aria-hidden="true" className="h-[calc(var(--player-h)+env(safe-area-inset-bottom)+24px)]" />
           <PlayerBar />
-          <TabBar />
           <FullPlayer />
           <Toast />
           <PwaClient />

@@ -2,23 +2,23 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { SearchX, Search as SearchIcon, X } from 'lucide-react';
+import { Library, Mic2, Music, Search as SearchIcon, SearchX, ListMusic, Trash2, X } from 'lucide-react';
 import { collectionHref, search, type SearchType } from '@/lib/api';
 import { useSearchHistory } from '@/lib/storage';
 import type { Album, Artist, Sheet, Song } from '@/lib/types';
 import { Page, PageTitle } from '@/components/Page';
 import TrackList from '@/components/TrackList';
 import { CardGrid, MediaCard } from '@/components/MediaCard';
-import { CardSkeleton, Empty, ErrorBox, Sentinel, Tabs, TrackSkeleton, pad2 } from '@/components/ui';
+import { BTN_PRIMARY, CardSkeleton, Empty, ErrorBox, ICON_BTN, Pills, Sentinel, TrackSkeleton } from '@/components/ui';
 
-const TABS: { id: SearchType; label: string }[] = [
-  { id: 'music', label: '单曲' },
-  { id: 'artist', label: '歌手' },
-  { id: 'album', label: '专辑' },
-  { id: 'sheet', label: '歌单' },
+const TABS: { id: SearchType; label: string; icon: React.ElementType }[] = [
+  { id: 'music', label: '单曲', icon: Music },
+  { id: 'artist', label: '歌手', icon: Mic2 },
+  { id: 'album', label: '专辑', icon: Library },
+  { id: 'sheet', label: '歌单', icon: ListMusic },
 ];
 
-const HOT = ['周杰伦', '邓紫棋', '林俊杰', '薛之谦', '陈奕迅', '王菲', '五月天', '毛不易', '孙燕姿', 'Taylor Swift'];
+const HOT = ['周杰伦', '邓紫棋', '林俊杰', '薛之谦', '陈奕迅', '王菲', '五月天', '毛不易', '孙燕姿', '华晨宇'];
 
 type Item = Song | Album | Artist | Sheet;
 
@@ -80,81 +80,80 @@ function SearchInner() {
   }, [q, type]);
 
   const firstLoad = loading && page === 0;
+  const tabLabel = TABS.find(t => t.id === type)?.label;
 
   return (
     <Page>
-      {!q && <PageTitle>搜索</PageTitle>}
+      <PageTitle title={q ? `“${q}”` : '搜索'} kicker="SEARCH"
+        sub={q && page > 0 && items.length > 0 ? <span className="tabular-nums">已加载 {items.length} 个{tabLabel}结果{done ? ' - 已全部加载' : ' - 向下滚动加载更多'}</span> : undefined} />
 
-      <div className="glass sticky top-0 z-20 -mx-4 bg-bg/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+8px)] backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-16 lg:-mx-10 lg:px-10 lg:pt-3">
-        <form role="search" onSubmit={e => { e.preventDefault(); go(input); }}>
-          <label htmlFor="q" className="sr-only">搜索歌曲、歌手、专辑或歌单</label>
-          <div className="relative flex items-center border-b-2 border-line-strong">
-            <SearchIcon className="pointer-events-none absolute left-0 h-6 w-6" />
-            <input id="q" ref={inputRef} type="search" enterKeyHint="search" autoComplete="off"
-              value={input} onChange={e => setInput(e.target.value)} placeholder="想听什么？" autoFocus={!q}
-              className="h-14 w-full bg-transparent pl-9 pr-10 text-xl font-bold text-ink outline-none placeholder:font-medium placeholder:text-sub sm:text-2xl [&::-webkit-search-cancel-button]:hidden" />
-            {input && (
-              <button type="button" onClick={() => { setInput(''); inputRef.current?.focus(); }} aria-label="清空输入"
-                className="press absolute right-0 flex h-9 w-9 items-center justify-center text-sub hover:text-ink">
-                <X className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-        </form>
-        {q && <div className="mt-4"><Tabs label="结果类型" value={type} items={TABS} onChange={t => go(q, t)} /></div>}
-      </div>
+      <form role="search" onSubmit={e => { e.preventDefault(); go(input); }} className="mb-5 flex gap-2">
+        <label htmlFor="q" className="sr-only">搜索歌曲、歌手、专辑或歌单</label>
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <SearchIcon size={18} strokeWidth={2} className="pointer-events-none absolute left-4 text-sub" />
+          <input id="q" ref={inputRef} type="search" enterKeyHint="search" autoComplete="off" value={input}
+            onChange={e => setInput(e.target.value)} placeholder="搜索歌曲、歌手、专辑..." autoFocus={!q}
+            className="h-12 w-full rounded-full bg-card pl-12 pr-11 text-base text-ink ring-1 ring-line outline-none transition-shadow placeholder:text-sub focus-visible:ring-2 focus-visible:ring-[var(--pop)] [&::-webkit-search-cancel-button]:hidden" />
+          {input && (
+            <button type="button" onClick={() => { setInput(''); inputRef.current?.focus(); }} aria-label="清空输入"
+              className={`${ICON_BTN} absolute right-1.5 h-9 w-9 text-sub`}><X size={16} /></button>
+          )}
+        </div>
+        <button type="submit" className={`${BTN_PRIMARY} h-12 shrink-0 px-6 text-sm font-black`}>搜索</button>
+      </form>
+
+      {q && <div className="mb-6"><Pills label="结果类型" value={type} items={TABS} onChange={t => go(q, t)} /></div>}
 
       {!q && (
-        <div className="mt-10 grid gap-12 lg:grid-cols-12">
+        <div className="grid gap-12 pt-4 lg:grid-cols-12">
           <section className="lg:col-span-7">
-            <h2 className="mb-2 text-sm font-bold">热门搜索</h2>
-            <ol className="border-t border-line">
+            <h2 className="mb-4 text-2xl font-black tracking-[-0.04em]">热门搜索</h2>
+            <ol className="grid grid-cols-1 gap-x-6 rounded-panel bg-card p-2 ring-1 ring-line sm:grid-cols-2 sm:p-3">
               {HOT.map((h, i) => (
-                <li key={h} className="border-b border-line">
-                  <button onClick={() => go(h)} className="group flex w-full items-center gap-5 py-3 text-left">
-                    <span className={`w-11 text-[28px] leading-none ${i < 3 ? 'rank-solid' : 'rank-outline'}`}>{pad2(i + 1)}</span>
-                    <span className="text-lg font-bold"><span className="u-hover">{h}</span></span>
+                <li key={h}>
+                  <button onClick={() => go(h)} className="flex w-full items-center gap-4 rounded-card px-3 py-3 text-left transition-colors hover:bg-card-2">
+                    <span className={`font-wide w-7 text-center text-lg font-extrabold tabular-nums ${i < 3 ? 'text-pop' : 'text-sub'}`}>{i + 1}</span>
+                    <span className="truncate text-[15px] font-bold">{h}</span>
                   </button>
                 </li>
               ))}
             </ol>
           </section>
-          {history.list.length > 0 && (
-            <section className="lg:col-span-5">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-bold">最近搜索</h2>
-                <button onClick={history.clear} className="u-hover text-sm text-sub hover:text-ink">清空</button>
-              </div>
-              <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+          <section className="lg:col-span-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-2xl font-black tracking-[-0.04em]">最近搜索</h2>
+              {history.list.length > 0 && (
+                <button onClick={history.clear} aria-label="清空搜索记录" className={`${ICON_BTN} h-9 w-9 text-sub`}><Trash2 size={16} /></button>
+              )}
+            </div>
+            {history.list.length ? (
+              <div className="flex flex-wrap gap-2">
                 {history.list.map(h => (
-                  <button key={h} onClick={() => go(h)} className="press h-10 border border-line px-4 text-sm hover:border-line-strong">{h}</button>
+                  <button key={h} onClick={() => go(h)} className="inline-flex h-9 items-center rounded-full bg-card px-4 text-sm font-bold ring-1 ring-line transition-colors hover:bg-card-2">{h}</button>
                 ))}
               </div>
-            </section>
-          )}
+            ) : <p className="text-sm text-sub">还没有搜索记录</p>}
+          </section>
         </div>
       )}
 
       {q && (
-        <div className="mt-6" role="tabpanel">
-          {!firstLoad && page > 0 && items.length > 0 && (
-            <p className="mb-4 text-sm text-sub">“<span className="font-bold text-ink">{q}</span>”的{TABS.find(t => t.id === type)?.label}结果</p>
-          )}
+        <div role="tabpanel">
           {error && page === 0 && <ErrorBox message={error} onRetry={() => fetchPage(1)} />}
           {firstLoad && (type === 'music' ? <TrackSkeleton /> : <CardGrid><CardSkeleton /></CardGrid>)}
           {!loading && !error && page > 0 && items.length === 0 && (
-            <Empty icon={SearchX} title={`没有找到“${q}”`} hint="检查一下关键词，或切换到其他分类试试。" />
+            <Empty icon={SearchX} title={`没有找到相关${tabLabel}`} hint="检查一下关键词, 或切换到其他分类试试。" />
           )}
           {items.length > 0 && (type === 'music' ? <TrackList songs={items as Song[]} /> : (
             <CardGrid>
-              {type === 'album' && (items as Album[]).map((a, i) => (
-                <MediaCard key={a.id} index={i} href={collectionHref('album', a)} title={a.title} subtitle={[a.artist, a.date?.slice(0, 4)].filter(Boolean).join(' / ')} artwork={a.artwork} />
+              {type === 'album' && (items as Album[]).map(a => (
+                <MediaCard key={a.id} href={collectionHref('album', a)} title={a.title} subtitle={[a.artist, a.date?.slice(0, 4)].filter(Boolean).join(' · ')} artwork={a.artwork} />
               ))}
-              {type === 'artist' && (items as Artist[]).map((a, i) => (
-                <MediaCard key={a.id} index={i} round href={collectionHref('artist', { id: a.id, title: a.name, artwork: a.avatar })} title={a.name} subtitle={a.worksNum ? `${a.worksNum} 首歌曲` : undefined} artwork={a.avatar} />
+              {type === 'artist' && (items as Artist[]).map(a => (
+                <MediaCard key={a.id} round href={collectionHref('artist', { id: a.id, title: a.name, artwork: a.avatar })} title={a.name} subtitle={a.worksNum ? `${a.worksNum} 首歌曲` : undefined} artwork={a.avatar} />
               ))}
-              {type === 'sheet' && (items as Sheet[]).map((s, i) => (
-                <MediaCard key={s.id} index={i} href={collectionHref('playlist', s)} title={s.title} subtitle={s.artist} artwork={s.artwork} count={s.playCount} />
+              {type === 'sheet' && (items as Sheet[]).map(s => (
+                <MediaCard key={s.id} href={collectionHref('playlist', s)} title={s.title} subtitle={s.artist} artwork={s.artwork} count={s.playCount} />
               ))}
             </CardGrid>
           ))}

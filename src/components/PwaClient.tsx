@@ -39,28 +39,28 @@ export default function PwaClient() {
   return (
     <>
       {offline && (
-        <div className="fixed inset-x-0 top-0 z-[60] bg-ink pb-1.5 pt-[calc(env(safe-area-inset-top)+6px)] text-center text-xs font-medium text-bg">
+        <div className="fixed inset-x-0 top-0 z-[65] bg-ink pb-1.5 pt-[calc(env(safe-area-inset-top)+6px)] text-center text-xs font-bold text-paper">
           网络已断开，在线播放暂不可用
         </div>
       )}
       {installEvt && (
-        <div className="rise fixed inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] z-[60] flex items-center gap-3 border border-line-strong bg-bg p-2 pl-3 shadow-[6px_6px_0_var(--line)] sm:left-auto sm:w-[380px]">
+        <div className="fixed inset-x-3 bottom-[calc(var(--player-h)+env(safe-area-inset-bottom)+24px)] z-[46] flex items-center gap-3 rounded-panel bg-card p-2 pl-3 shadow-lift ring-1 ring-line sm:left-auto sm:right-6 sm:w-[380px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon" alt="" className="h-10 w-10" />
+          <img src="/icon" alt="" className="h-10 w-10 rounded-[27%]" />
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">安装听域到桌面</span>
+            <span className="block text-sm font-semibold">安装听域音乐到桌面</span>
             <span className="block text-xs text-sub">像 App 一样打开，支持锁屏控制</span>
           </span>
           <button
             onClick={async () => { await installEvt.prompt(); setInstallEvt(null); }}
-            className="press flex h-10 items-center gap-1.5 bg-pop px-4 text-sm font-bold text-onpop"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-bold text-onaccent"
           >
             <Download className="h-4 w-4" />安装
           </button>
           <button
             onClick={() => { setInstallEvt(null); try { localStorage.setItem('tym:install-dismissed', '1'); } catch { /* */ } }}
             aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center text-sub hover:text-ink"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-sub hover:bg-card-2 hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>

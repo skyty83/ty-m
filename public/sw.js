@@ -1,10 +1,10 @@
 /* 听域 TY Music Service Worker */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `tym-shell-${VERSION}`;
 const STATIC = `tym-static-${VERSION}`;
 const IMAGES = `tym-img-${VERSION}`;
 const OFFLINE_URL = '/offline';
-const PRECACHE = ['/', '/charts', '/search', '/library', OFFLINE_URL, '/manifest.webmanifest', '/icon', '/pwa-icon/192', '/pwa-icon/512'];
+const PRECACHE = ['/', '/charts', '/playlists', '/search', '/library', OFFLINE_URL, '/manifest.webmanifest', '/icon', '/pwa-icon/192', '/pwa-icon/512'];
 
 self.addEventListener('install', event => {
   event.waitUntil(

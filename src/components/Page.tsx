@@ -1,17 +1,17 @@
+// 页面容器与大标题 (与 vod-site 一致的 wrap 与标题尺度)
 export function Page({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`mx-auto w-full max-w-[1480px] px-4 pt-[calc(env(safe-area-inset-top)+16px)] sm:px-6 lg:px-10 lg:pt-10 ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`wrap pt-8 lg:pt-14 ${className}`}>{children}</div>;
 }
 
-// 页面大标题: 超大粗体 + 可选右侧操作
-export function PageTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
+export function PageTitle({ title, kicker, aside, sub }: { title: string; kicker?: string; aside?: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="mb-8 flex items-end justify-between gap-4">
-      <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.03em] sm:text-6xl lg:text-7xl">{children}</h1>
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 lg:mb-12">
+      <div className="min-w-0">
+        {kicker && <p className="font-wide mb-2 text-sm font-extrabold text-pop sm:text-base">{kicker}</p>}
+        <h1 className="text-5xl font-black leading-[0.95] tracking-[-0.045em] sm:text-7xl">{title}</h1>
+        {sub && <div className="mt-4 text-sm text-sub">{sub}</div>}
+      </div>
       {aside}
-    </div>
+    </header>
   );
 }

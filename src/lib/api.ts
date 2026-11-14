@@ -67,13 +67,27 @@ export async function getLyric(song: Song): Promise<string> {
   }
 }
 
-export async function getArtwork(song: Song): Promise<string | undefined> {
-  try {
-    const r = await apiCall<{ artwork?: string }>('getMusicInfo', [song]);
-    return r.artwork;
-  } catch {
-    return undefined;
+const artCache = new Map<string, Promise<string | undefined>>();
+
+// 검색 API 로 같은 곡을 찾아 앨범아트를 가져오고, 없으면 곡 정보 API(m.kuwo.cn, 자주 실패)로 대체
+export function getArtwork(song: Song): Promise<string | undefined> {
+  if (!artCache.has(song.id)) {
+    const p = (async () => {
+      try {
+        const r = await search(`${song.title} ${song.artist}`, 1, 'music');
+        const hit = r.data.find(x => x.id === song.id && x.artwork) || r.data.find(x => x.title === song.title && x.artwork);
+        if (hit?.artwork) return hit.artwork;
+      } catch { /* 곡 정보 API 로 대체 */ }
+      try {
+        const r = await apiCall<{ artwork?: string }>('getMusicInfo', [song]);
+        return r.artwork;
+      } catch {
+        return undefined;
+      }
+    })();
+    artCache.set(song.id, p);
   }
+  return artCache.get(song.id)!;
 }
 
 // 상세 페이지(차트/앨범/아티스트/플레이리스트)의 곡 목록

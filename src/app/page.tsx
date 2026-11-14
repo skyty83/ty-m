@@ -1,242 +1,352 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Play, Search } from 'lucide-react';
-import { collectionHref, getRecommendSheets, getSheetTags, type SheetTag } from '@/lib/api';
+import { Play, Sparkle } from 'lucide-react';
+import { collectionHref, getArtwork, getCollection, getRecommendSheets } from '@/lib/api';
 import { loadTopLists, useChartSongs } from '@/lib/charts';
 import { useRecent } from '@/lib/storage';
-import type { Sheet, TopListGroup, TopListItem } from '@/lib/types';
-import { Page, PageTitle } from '@/components/Page';
-import { Brand } from '@/components/Nav';
-import { CardGrid, MediaCard, Shelf } from '@/components/MediaCard';
-import { CardSkeleton, Cover, ErrorBox, EqBars, PopButton, SectionHead, Sentinel, Sk, Tabs, pad2 } from '@/components/ui';
+import type { Sheet, Song, TopListGroup, TopListItem } from '@/lib/types';
+import { CardGrid, MediaCard } from '@/components/MediaCard';
+import { CardSkeleton, Cover, ErrorBox, Row, SectionHead, Sk, fmtCount, pad2, safeImg } from '@/components/ui';
 import { usePlayer } from '@/components/PlayerProvider';
 
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+function subscribeVisibility(cb: () => void) {
+  document.addEventListener('visibilitychange', cb);
+  return () => document.removeEventListener('visibilitychange', cb);
+}
 
-/* ── 今日热歌: 左封面 + 右侧 TOP10 大号排名 ───────────────── */
-function TodayChart({ item }: { item?: TopListItem }) {
-  const { songs } = useChartSongs(item);
-  const { playList, current, playing } = usePlayer();
-  const top = songs?.slice(0, 10) ?? [];
+/* ── 首屏: 本周主推歌单 (与 vod-site HeroStage 相同的卡组 + 进度轨道) ─────────── */
+const DECK = [
+  'translate-x-0 translate-y-0 rotate-0 scale-100 opacity-100 z-30',
+  'translate-x-[22%] translate-y-[3%] rotate-[7deg] scale-[0.86] opacity-80 z-20',
+  'translate-x-[40%] translate-y-[6%] rotate-[13deg] scale-[0.74] opacity-45 z-10',
+];
+const HIDDEN = 'translate-x-[48%] translate-y-[8%] rotate-[16deg] scale-[0.7] opacity-0 z-0 pointer-events-none';
+
+function HeroStage({ items }: { items: Sheet[] }) {
+  const [index, setIndex] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const visible = useSyncExternalStore(subscribeVisibility, () => !document.hidden, () => true);
+  const { playList } = usePlayer();
+
+  const n = items.length;
+  const current = items[index];
+  const running = !hovered && !focused && visible;
+  const next = () => setIndex(i => (i + 1) % n);
+
+  const playSheet = async () => {
+    setStarting(true);
+    try {
+      const r = await getCollection('playlist', current, 1);
+      if (r.songs.length) playList(r.songs, 0);
+    } catch { /* 播放器 Toast 会显示错误 */ } finally { setStarting(false); }
+  };
 
   return (
-    <section aria-label="今日热歌" className="grid gap-8 md:grid-cols-12 md:gap-10">
-      <div className="md:col-span-5">
-        <Link href={item ? collectionHref('chart', item) : '#'} className="group block">
-          <Cover src={item?.coverImg} priority className="aspect-square w-full" />
-        </Link>
-        <div className="mt-4 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-black tracking-tight">{item?.title ?? <Sk className="h-7 w-40" />}</h2>
-            {item?.description && (
-              <p className="mt-1.5 line-clamp-2 max-w-[44ch] text-sm leading-relaxed text-sub">{item.description.replace(/^榜单规则[：:]/, '')}</p>
-            )}
+    <section aria-roledescription="carousel" aria-label="本周主推歌单"
+      className="relative isolate -mt-[var(--header-h)] overflow-hidden pt-[var(--header-h)]"
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false); }}>
+      <div aria-hidden="true" className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 scale-125 opacity-80 blur-[90px] saturate-150 dark:opacity-60">
+          {items.map((it, i) => (
+            <div key={it.id} className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${i === index ? 'opacity-100' : 'opacity-0'}`}
+              style={{ backgroundImage: `url("${safeImg(it.artwork)}")` }} />
+          ))}
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-paper/30 via-paper/70 to-paper" />
+      </div>
+
+      <div className="wrap grid min-h-[min(640px,calc(100svh-var(--header-h)-8rem))] items-center gap-10 pb-6 pt-8 lg:grid-cols-12 lg:gap-6 lg:pt-10">
+        <div key={current.id} className="order-2 min-w-0 lg:order-1 lg:col-span-7" aria-live={running ? 'off' : 'polite'}>
+          <p className="rise font-wide text-xs font-semibold uppercase tracking-[0.2em] text-pop">Top Picks</p>
+          <h1 className="rise mt-5 line-clamp-2 pb-1 text-[clamp(2.5rem,7vw,6.5rem)] font-black leading-[1.02] tracking-[-0.05em] text-ink [text-wrap:balance]"
+            style={{ '--d': '0.06s' } as React.CSSProperties}>
+            {current.title}
+          </h1>
+          <div className="rise mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-base font-bold text-ink/80" style={{ '--d': '0.14s' } as React.CSSProperties}>
+            {current.playCount && <span className="inline-flex h-7 items-center rounded-full bg-accent px-3 text-sm text-onaccent">{fmtCount(current.playCount)} 次播放</span>}
+            {current.artist && <span>{current.artist}</span>}
+            <span>歌单</span>
           </div>
-          {item && (
-            <Link href={collectionHref('chart', item)} className="u-hover shrink-0 pt-1.5 text-sm font-semibold">完整榜单</Link>
-          )}
+          <div className="rise mt-9 flex flex-wrap gap-3" style={{ '--d': '0.22s' } as React.CSSProperties}>
+            <button onClick={playSheet} disabled={starting}
+              className="group inline-flex h-14 items-center gap-3 rounded-full bg-accent pl-2 pr-7 text-lg font-bold text-onaccent transition-transform duration-300 ease-out-expo hover:scale-[1.03] active:scale-[0.98] disabled:opacity-70">
+              <span className="grid size-10 place-items-center rounded-full bg-onaccent text-accent transition-transform duration-300 group-hover:scale-110">
+                <Play size={17} fill="currentColor" aria-hidden="true" />
+              </span>
+              {starting ? '加载中...' : '立即播放'}
+            </button>
+            <Link href={collectionHref('playlist', current)}
+              className="inline-flex h-14 items-center rounded-full px-7 text-lg font-bold text-ink ring-1 ring-line transition-colors hover:bg-ink hover:text-paper">
+              查看歌单
+            </Link>
+          </div>
+        </div>
+
+        <div className="order-1 lg:order-2 lg:col-span-5">
+          <div className="relative mx-auto aspect-square w-[min(56vw,240px)] sm:w-[280px] lg:mr-[18%] lg:w-[min(100%,380px)]">
+            {items.map((it, i) => {
+              const pos = (i - index + n) % n;
+              return (
+                <div key={it.id} className={`absolute inset-0 origin-bottom-left transition-[transform,opacity] duration-700 ease-out-expo ${DECK[pos] ?? HIDDEN}`}>
+                  {pos === 0 ? (
+                    <Link href={collectionHref('playlist', it)} tabIndex={-1} aria-hidden="true"
+                      className="block h-full overflow-hidden rounded-panel bg-card-2 shadow-lift ring-1 ring-line">
+                      <Cover src={it.artwork} priority rounded="rounded-none" className="h-full w-full" />
+                    </Link>
+                  ) : (
+                    <button type="button" tabIndex={-1} onClick={() => setIndex(i)} aria-label={`切换到 ${it.title}`}
+                      className="block h-full w-full overflow-hidden rounded-panel bg-card-2 shadow-lift ring-1 ring-line">
+                      <Cover src={it.artwork} rounded="rounded-none" className="h-full w-full" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <ol className="grid content-start gap-x-8 md:col-span-7 xl:grid-cols-2" aria-label="榜单前十">
-        {!songs && Array.from({ length: 10 }).map((_, i) => (
-          <li key={i} className="flex items-center gap-4 border-b border-line py-3.5"><Sk className="h-8 w-10" /><Sk className="h-4 flex-1" /></li>
-        ))}
-        {top.map((s, i) => {
-          const on = current?.id === s.id;
-          return (
-            <li key={s.id} className="border-b border-line">
-              <button onClick={() => playList(songs!, i)} className="group flex w-full items-center gap-4 py-3 text-left">
-                <span className={`w-12 shrink-0 text-[34px] leading-none ${i < 3 ? 'rank-solid' : 'rank-outline'}`}>
-                  {on && playing ? <EqBars on /> : pad2(i + 1)}
+      <div className="wrap pb-12">
+        <div role="tablist" aria-label="选择主推歌单" className="scrollbar-hide -mx-4 flex gap-5 overflow-x-auto px-4 sm:mx-0 sm:gap-8 sm:px-0">
+          {items.map((it, i) => {
+            const active = i === index;
+            return (
+              <button key={it.id} type="button" role="tab" aria-selected={active} onClick={() => setIndex(i)} className="group min-w-[140px] flex-1 pt-2 text-left">
+                <span className="block h-[3px] w-full overflow-hidden rounded-full bg-ink/15">
+                  {active && (
+                    <span key={`${it.id}-${index}`} onAnimationEnd={next} style={{ animationPlayState: running ? 'running' : 'paused' }}
+                      className="block h-full origin-left rounded-full bg-[var(--pop)] motion-safe:animate-[progress_8s_linear_forwards]" />
+                  )}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-bold">{on ? <span className="mark">{s.title}</span> : <span className="u-hover">{s.title}</span>}</span>
-                  <span className="mt-0.5 block truncate text-xs text-sub">{s.artist}</span>
+                <span className="mt-3 flex items-baseline gap-2.5">
+                  <span className="font-wide text-[11px] font-semibold tabular-nums text-sub">{pad2(i + 1)}</span>
+                  <span className={`truncate text-sm font-bold transition-colors ${active ? 'text-ink' : 'text-sub group-hover:text-ink'}`}>{it.title}</span>
                 </span>
-                <Play className="h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" fill="currentColor" strokeWidth={0} />
               </button>
-            </li>
-          );
-        })}
-      </ol>
+            );
+          })}
+        </div>
+      </div>
     </section>
   );
 }
 
-/* ── 榜单票根: 封面 + 前三首 ────────────────────────────── */
-function ChartTicket({ item, index }: { item: TopListItem; index: number }) {
-  const { songs, ref } = useChartSongs(item, true);
-  const { playList } = usePlayer();
+function HeroSkeleton() {
   return (
-    <div ref={ref} role="listitem" style={{ '--i': index } as React.CSSProperties}
-      className="rise flex w-[78vw] max-w-[320px] shrink-0 snap-start flex-col border border-line-strong sm:w-[300px]">
-      <div className="flex items-center justify-between gap-2 border-b border-line-strong px-4 py-3">
-        <Link href={collectionHref('chart', item)} className="min-w-0 truncate font-black"><span className="u-hover">{item.title}</span></Link>
-        <button onClick={() => songs?.length && playList(songs, 0)} disabled={!songs?.length} aria-label={`播放 ${item.title}`}
-          className="press flex h-8 w-8 shrink-0 items-center justify-center bg-pop text-onpop disabled:opacity-40">
-          <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" strokeWidth={0} />
-        </button>
+    <div className="wrap grid min-h-[min(640px,calc(100svh-var(--header-h)-8rem))] items-center gap-10 pb-16 pt-8 lg:grid-cols-12">
+      <div className="order-2 flex flex-col gap-5 lg:order-1 lg:col-span-7">
+        <Sk className="h-3 w-24 rounded-full" /><Sk className="h-16 w-4/5 rounded-card" /><Sk className="h-7 w-1/2 rounded-full" /><Sk className="h-14 w-44 rounded-full" />
       </div>
-      <Link href={collectionHref('chart', item)} className="flex gap-4 p-4">
-        <Cover src={item.coverImg} className="h-20 w-20" />
-        <ol className="flex min-w-0 flex-1 flex-col justify-between">
-          {(songs?.slice(0, 3) ?? [null, null, null]).map((s, i) => (
-            <li key={i} className="flex min-w-0 items-baseline gap-2 text-[13px]">
-              <span className="num font-bold">{i + 1}</span>
-              {s ? <span className="truncate">{s.title}<span className="text-sub"> / {s.artist}</span></span> : <Sk className="h-3 flex-1" />}
-            </li>
-          ))}
-        </ol>
-      </Link>
+      <Sk className="order-1 mx-auto aspect-square w-[min(56vw,240px)] rounded-panel sm:w-[280px] lg:order-2 lg:col-span-5 lg:w-[380px]" />
     </div>
   );
 }
 
-/* ── 推荐歌单 ─────────────────────────────────────────── */
-const ALL: SheetTag = { id: '', title: '精选' };
-
-function Playlists() {
-  const [tags, setTags] = useState<SheetTag[]>([ALL]);
-  const [tagId, setTagId] = useState('');
-  const [sheets, setSheets] = useState<Sheet[]>([]);
-  const [page, setPage] = useState(0);
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const req = useRef(0);
-
-  useEffect(() => { getSheetTags().then(t => setTags([ALL, ...t])).catch(() => {}); }, []);
-
-  const load = useCallback(async (t: SheetTag, p: number) => {
-    const id = ++req.current;
-    setLoading(true);
-    setError('');
-    try {
-      const r = await getRecommendSheets(p, t);
-      if (id !== req.current) return;
-      setSheets(prev => {
-        const base = p === 1 ? [] : prev;
-        const ids = new Set(base.map(s => String(s.id)));
-        return [...base, ...r.data.filter(s => !ids.has(String(s.id)))];
-      });
-      setPage(p);
-      setDone(!!r.isEnd || r.data.length === 0);
-    } catch (e) {
-      if (id === req.current) setError(e instanceof Error ? e.message : '加载失败');
-    } finally {
-      if (id === req.current) setLoading(false);
-    }
-  }, []);
-
-  const tag = tags.find(t => t.id === tagId) ?? ALL;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换标签时重新加载
-    load(tag, 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagId, load]);
-
+/* ── 今日新歌字幕带 (与 vod-site Ticker 相同) ─────────────────────────────── */
+function Ticker({ item }: { item?: TopListItem }) {
+  const { songs } = useChartSongs(item);
+  const { playList } = usePlayer();
+  const list = songs?.slice(0, 14) ?? [];
+  if (!list.length) return <div className="h-[120px] sm:h-[140px]" aria-hidden="true" />;
   return (
-    <section>
-      <SectionHead title="推荐歌单" />
-      <div className="mb-6">
-        <Tabs label="歌单分类" value={tagId} items={tags.map(t => ({ id: t.id, label: t.title }))}
-          onChange={id => { setSheets([]); setPage(0); setDone(false); setTagId(id); }} />
+    <section aria-label="今日新歌" className="relative py-10">
+      <div aria-hidden="true" className="absolute inset-x-[-5%] top-1/2 h-16 -translate-y-1/2 rotate-[2.2deg] bg-ink/90 sm:h-20" />
+      <div className="marquee relative -mx-[5%] flex -rotate-[1.8deg] items-stretch bg-accent text-onaccent shadow-lift">
+        <span className="font-wide relative z-10 flex shrink-0 items-center bg-onaccent pl-[calc(5vw+1rem)] pr-4 text-xs font-extrabold uppercase tracking-[0.18em] text-accent sm:pl-[calc(5vw+2.5rem)] sm:pr-6 sm:text-sm">
+          New Songs
+        </span>
+        <div className="min-w-0 flex-1 overflow-hidden motion-reduce:overflow-x-auto">
+          <div className="marquee-track flex w-max">
+            {[0, 1].map(copy => (
+              <ul key={copy} aria-hidden={copy === 1 || undefined} className="flex shrink-0 items-center py-4 sm:py-5">
+                {list.map((s, i) => (
+                  <li key={`${copy}-${s.id}`} className="flex items-center">
+                    <button tabIndex={copy === 1 ? -1 : undefined} onClick={() => playList(songs!, i)}
+                      className="flex items-baseline gap-2.5 whitespace-nowrap px-5 text-xl font-black tracking-[-0.03em] decoration-2 underline-offset-4 hover:underline sm:text-3xl">
+                      {s.title}<span className="text-xs font-bold opacity-70 sm:text-sm">{s.artist}</span>
+                    </button>
+                    <Sparkle size={18} fill="currentColor" strokeWidth={0} aria-hidden="true" className="shrink-0" />
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
       </div>
-      {error && page === 0 ? <ErrorBox message={error} onRetry={() => load(tag, 1)} /> : (
-        <CardGrid>
-          {sheets.map((s, i) => (
-            <MediaCard key={s.id} index={i} big={i === 0} href={collectionHref('playlist', s)} title={s.title} subtitle={s.artist} artwork={s.artwork} count={s.playCount} />
-          ))}
-          {page === 0 && <CardSkeleton count={10} />}
-        </CardGrid>
-      )}
-      {page > 0 && <Sentinel onHit={() => { if (!loading && !done) load(tag, page + 1); }} done={done} loading={loading} />}
     </section>
   );
 }
 
-/* ── 页面 ─────────────────────────────────────────────── */
+/* ── 热歌 TOP 10: 序号压在封面后面 (与 vod-site 排行货架相同) ─────────────── */
+function useArtworks(songs: Song[] | null) {
+  const [arts, setArts] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!songs) return;
+    let alive = true;
+    songs.filter(s => !s.artwork).forEach(s => {
+      getArtwork(s).then(a => { if (alive && a) setArts(m => ({ ...m, [s.id]: a })); });
+    });
+    return () => { alive = false; };
+  }, [songs]);
+  return arts;
+}
+
+function TopTen({ item }: { item?: TopListItem }) {
+  const { songs } = useChartSongs(item);
+  const top = songs?.slice(0, 10) ?? null;
+  const arts = useArtworks(top);
+  const { playList, current } = usePlayer();
+  if (!item) return null;
+  return (
+    <section className="reveal">
+      <SectionHead title="热歌榜" kicker="Top 10" href={collectionHref('chart', item)} />
+      <Row label="热歌榜前十">
+        {(top ?? Array.from({ length: 6 }).map(() => null)).map((s, i) => (
+          <li key={s?.id ?? i} className="group/rank relative flex w-[236px] shrink-0 snap-start items-end justify-end sm:w-[268px]">
+            <span aria-hidden="true"
+              className="font-wide text-outline absolute bottom-[3.4rem] left-0 select-none text-[120px] font-extrabold leading-[0.8] tracking-[-0.09em] transition-colors duration-300 group-hover/rank:text-[var(--accent)] group-hover/rank:[-webkit-text-stroke-color:var(--accent)] sm:text-[144px]">
+              {i + 1}
+            </span>
+            {s ? (
+              <button onClick={() => playList(songs!, i)} className="group relative block w-[146px] text-left sm:w-[168px]">
+                <div className="relative aspect-square overflow-hidden rounded-card bg-card-2 ring-1 ring-line transition duration-500 ease-out-expo group-hover:-translate-y-2 group-hover:shadow-lift group-hover:ring-2 group-hover:ring-accent">
+                  <Cover src={s.artwork || arts[s.id]} className="h-full w-full transition-transform duration-700 ease-out-expo group-hover:scale-[1.07]" />
+                  <span className="pointer-events-none absolute bottom-3 left-3 inline-flex h-9 translate-y-2 items-center gap-1.5 rounded-full bg-accent pl-3 pr-4 text-[13px] font-bold text-onaccent opacity-0 transition duration-500 ease-out-expo group-hover:translate-y-0 group-hover:opacity-100 [@media(hover:none)]:hidden">
+                    <Play size={13} fill="currentColor" aria-hidden="true" />播放
+                  </span>
+                </div>
+                <div className="px-0.5 pt-3">
+                  <h3 className={`truncate text-[15px] font-bold tracking-[-0.01em] ${current?.id === s.id ? 'text-pop' : 'text-ink'}`}>{s.title}</h3>
+                  <p className="mt-1 truncate text-[13px] text-sub">{s.artist}</p>
+                </div>
+              </button>
+            ) : (
+              <div className="relative w-[146px] sm:w-[168px]"><Sk className="aspect-square rounded-card" /><Sk className="mt-3 h-4 w-3/4 rounded-full" /></div>
+            )}
+          </li>
+        ))}
+      </Row>
+    </section>
+  );
+}
+
+/* ── 榜单 Mosaic: 1 个大面板 + 8 个榜单 (2/4/6 列刚好铺满) ─────────────────── */
+function ChartMosaic({ items }: { items: TopListItem[] }) {
+  const [lead, ...others] = items;
+  const { songs } = useChartSongs(lead);
+  const { playList } = usePlayer();
+  const rest = others.slice(0, others.length >= 8 ? 8 : 4);
+  if (!lead) return null;
+  return (
+    <section className="reveal">
+      <SectionHead title="排行榜" href="/charts" />
+      <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
+        <div className="group relative col-span-2 aspect-[4/3] overflow-hidden rounded-panel bg-card-2 ring-1 ring-line md:row-span-2 md:aspect-auto">
+          <Cover src={lead.coverImg} rounded="rounded-none" className="absolute inset-0 h-full w-full transition-transform duration-1000 ease-out-expo group-hover:scale-[1.05]" />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-5 pt-24 sm:p-7 sm:pt-32">
+            <Link href={collectionHref('chart', lead)} className="block">
+              <h3 className="line-clamp-2 text-3xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-4xl">{lead.title}</h3>
+            </Link>
+            <ol className="mt-3 space-y-1 text-sm text-white/80">
+              {(songs?.slice(0, 3) ?? []).map((s, i) => (
+                <li key={s.id} className="truncate"><span className="font-wide mr-2 font-extrabold text-accent">{i + 1}</span>{s.title} · {s.artist}</li>
+              ))}
+            </ol>
+            <button onClick={() => songs?.length && playList(songs, 0)} disabled={!songs?.length}
+              className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-accent pl-4 pr-5 text-sm font-bold text-onaccent transition-transform duration-300 hover:scale-[1.04] disabled:opacity-60">
+              <Play size={14} fill="currentColor" aria-hidden="true" />播放榜单
+            </button>
+          </div>
+        </div>
+        {rest.map(it => (
+          <MediaCard key={it.id} href={collectionHref('chart', it)} title={it.title} artwork={it.coverImg} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── 页面 ─────────────────────────────────────────────────────────────── */
 export default function Home() {
   const recent = useRecent();
   const { playList, current } = usePlayer();
   const [charts, setCharts] = useState<TopListGroup[] | null>(null);
+  const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const [err, setErr] = useState('');
-  const [date, setDate] = useState('');
+  const loaded = useRef(false);
 
-  const loadCharts = useCallback(() => {
+  const load = useCallback(() => {
     setErr('');
     loadTopLists().then(setCharts).catch(e => setErr(e.message));
+    getRecommendSheets(1).then(r => setSheets(r.data)).catch(e => { setSheets([]); setErr(e.message); });
   }, []);
 
   useEffect(() => {
-    const d = new Date();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 日期依赖客户端时区
-    setDate(`${d.getMonth() + 1}月${d.getDate()}日 星期${WEEK[d.getDay()]}`);
-    loadCharts();
-  }, [loadCharts]);
+    if (loaded.current) return;
+    loaded.current = true;
+    load();
+  }, [load]);
 
-  const official = charts?.[0];
-  const hero = official?.data[0];
-  const tickets = charts?.flatMap(g => g.data).filter(x => x.id !== hero?.id).slice(0, 8) ?? [];
-  const { songs: heroSongs } = useChartSongs(hero);
+  const official = charts?.[0]?.data ?? [];
+  const hot = official[0];
+  const fresh = official[1];
+  const mosaic = (charts ?? []).flatMap(g => g.data).filter(x => x.id !== hot?.id && x.id !== fresh?.id).slice(0, 9);
+  const heroItems = sheets ? [...sheets].sort((a, b) => Number(b.playCount || 0) - Number(a.playCount || 0)).slice(0, 5) : null;
+  const heroIds = new Set(heroItems?.map(s => s.id));
+  const gridSheets = sheets?.filter(s => !heroIds.has(s.id)).slice(0, 10) ?? null;
 
   return (
-    <Page className="flex flex-col gap-16">
-      <div>
-        <div className="mb-6 flex items-center justify-between lg:hidden">
-          <Brand />
-          <Link href="/search" aria-label="搜索" className="press flex h-10 w-10 items-center justify-center"><Search className="h-5 w-5" /></Link>
-        </div>
-        <PageTitle aside={
-          <PopButton onClick={() => heroSongs && playList(heroSongs, 0)} disabled={!heroSongs?.length} className="hidden sm:inline-flex">
-            <Play className="h-[18px] w-[18px]" fill="currentColor" strokeWidth={0} />播放今日热歌
-          </PopButton>
-        }>
-          今日
-          <span className="num mt-2 block text-base font-medium tracking-normal text-sub">{date || ' '}</span>
-        </PageTitle>
-        <PopButton onClick={() => heroSongs && playList(heroSongs, 0)} disabled={!heroSongs?.length} className="-mt-3 mb-2 w-full justify-center sm:hidden">
-          <Play className="h-[18px] w-[18px]" fill="currentColor" strokeWidth={0} />播放今日热歌
-        </PopButton>
-      </div>
+    <>
+      {heroItems?.length ? <HeroStage items={heroItems} /> : sheets ? null : <HeroSkeleton />}
 
-      {recent.length > 0 && (
-        <section aria-label="继续收听" className="-mt-8">
-          <p className="mb-3 text-sm font-bold">继续收听</p>
-          <Shelf label="继续收听">
-            {recent.slice(0, 10).map((s, i) => (
-              <button key={s.id} role="listitem" onClick={() => playList(recent, i)}
-                className="press flex w-[60vw] max-w-[260px] shrink-0 snap-start items-center gap-3 border border-line pr-3 text-left hover:border-line-strong sm:w-[240px]">
-                <Cover src={s.artwork} className="h-14 w-14" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold">{current?.id === s.id ? <span className="mark">{s.title}</span> : s.title}</span>
-                  <span className="block truncate text-xs text-sub">{s.artist}</span>
-                </span>
-              </button>
-            ))}
-          </Shelf>
-        </section>
+      {err && !charts && !sheets?.length ? (
+        <div className="wrap pt-10"><ErrorBox message={err} onRetry={load} /></div>
+      ) : (
+        <>
+          <Ticker item={fresh} />
+          <div className="wrap flex flex-col gap-20 pt-6 sm:gap-28">
+            {recent.length > 0 && (
+              <section className="reveal">
+                <SectionHead title="继续收听" href="/library?tab=recent" />
+                <Row label="继续收听">
+                  {recent.slice(0, 12).map((s, i) => (
+                    <li key={s.id} className="w-[150px] shrink-0 snap-start sm:w-[180px]">
+                      <button onClick={() => playList(recent, i)} className="group block w-full text-left">
+                        <div className="relative aspect-square overflow-hidden rounded-card bg-card-2 ring-1 ring-line transition duration-500 ease-out-expo group-hover:-translate-y-2 group-hover:shadow-lift group-hover:ring-2 group-hover:ring-accent">
+                          <Cover src={s.artwork} className="h-full w-full" />
+                        </div>
+                        <h3 className={`truncate px-0.5 pt-3 text-[15px] font-bold ${current?.id === s.id ? 'text-pop' : ''}`}>{s.title}</h3>
+                        <p className="mt-1 truncate px-0.5 text-[13px] text-sub">{s.artist}</p>
+                      </button>
+                    </li>
+                  ))}
+                </Row>
+              </section>
+            )}
+
+            <TopTen item={hot} />
+
+            {charts ? <ChartMosaic items={mosaic} /> : (
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6"><CardSkeleton count={6} /></div>
+            )}
+
+            <section className="reveal">
+              <SectionHead title="推荐歌单" href="/playlists" />
+              <CardGrid>
+                {gridSheets ? gridSheets.map(s => (
+                  <MediaCard key={s.id} href={collectionHref('playlist', s)} title={s.title} subtitle={s.artist} artwork={s.artwork} count={s.playCount} />
+                )) : <CardSkeleton count={10} />}
+              </CardGrid>
+            </section>
+          </div>
+        </>
       )}
-
-      {err ? <ErrorBox message={err} onRetry={loadCharts} /> : <TodayChart item={hero} />}
-
-      <section>
-        <SectionHead title="榜单" action={
-          <Link href="/charts" className="group inline-flex items-center gap-1 text-sm font-semibold">
-            <span className="u-hover">全部榜单</span><ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        } />
-        <Shelf label="榜单">
-          {tickets.length
-            ? tickets.map((it, i) => <ChartTicket key={it.id} item={it} index={i} />)
-            : Array.from({ length: 3 }).map((_, i) => <Sk key={i} className="h-[170px] w-[78vw] max-w-[320px] shrink-0 sm:w-[300px]" />)}
-        </Shelf>
-      </section>
-
-      <Playlists />
-    </Page>
+    </>
   );
 }
