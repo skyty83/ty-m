@@ -44,7 +44,7 @@ export default function PwaClient() {
         </div>
       )}
       {installEvt && (
-        <div className="rise fixed inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] z-[60] flex items-center gap-3 rounded-2xl bg-surface p-2 pl-3 shadow-float ring-1 ring-line sm:left-auto sm:w-[380px]">
+        <div className="rise fixed inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] z-[60] flex items-center gap-3 border border-line-strong bg-bg p-2 pl-3 shadow-[6px_6px_0_var(--line)] sm:left-auto sm:w-[380px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon" alt="" className="h-10 w-10" />
           <span className="min-w-0 flex-1">
@@ -53,14 +53,14 @@ export default function PwaClient() {
           </span>
           <button
             onClick={async () => { await installEvt.prompt(); setInstallEvt(null); }}
-            className="press flex h-9 items-center gap-1 rounded-full bg-accent px-4 text-sm font-semibold text-onaccent"
+            className="press flex h-10 items-center gap-1.5 bg-pop px-4 text-sm font-bold text-onpop"
           >
             <Download className="h-4 w-4" />安装
           </button>
           <button
             onClick={() => { setInstallEvt(null); try { localStorage.setItem('tym:install-dismissed', '1'); } catch { /* */ } }}
             aria-label="关闭"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-sub hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center text-sub hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>

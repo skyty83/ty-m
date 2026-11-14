@@ -10,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#0f0f11',
-    theme_color: '#0f0f11',
+    background_color: '#0b0b0b',
+    theme_color: '#0b0b0b',
     lang: 'zh-CN',
     categories: ['music', 'entertainment'],
     icons: [
@@ -20,6 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/pwa-icon/maskable', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     shortcuts: [
+      { name: '榜单', url: '/charts', icons: [{ src: '/pwa-icon/192', sizes: '192x192' }] },
       { name: '搜索', url: '/search', icons: [{ src: '/pwa-icon/192', sizes: '192x192' }] },
       { name: '我的音乐', url: '/library', icons: [{ src: '/pwa-icon/192', sizes: '192x192' }] },
     ],

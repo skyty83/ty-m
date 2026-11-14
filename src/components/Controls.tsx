@@ -4,19 +4,19 @@ import { Loader2, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, 
 import { usePlayer, useProgress } from './PlayerProvider';
 import { fmtTime } from './ui';
 
-export function PlayButton({ size = 'md', tone = 'ink', className = '' }: {
-  size?: 'sm' | 'md' | 'lg'; tone?: 'ink' | 'accent' | 'bare'; className?: string;
+export function PlayButton({ size = 'md', tone = 'pop', className = '' }: {
+  size?: 'sm' | 'md' | 'lg'; tone?: 'pop' | 'ink' | 'bare'; className?: string;
 }) {
   const { playing, loading, toggle, current } = usePlayer();
-  const box = size === 'lg' ? 'h-[72px] w-[72px]' : size === 'md' ? 'h-10 w-10' : 'h-10 w-10';
+  const box = size === 'lg' ? 'h-[72px] w-[72px]' : size === 'md' ? 'h-11 w-11' : 'h-10 w-10';
   const ic = size === 'lg' ? 'h-8 w-8' : 'h-5 w-5';
-  const color = tone === 'accent' ? 'bg-accent text-onaccent' : tone === 'ink' ? 'bg-ink text-bg' : 'text-ink';
+  const color = tone === 'pop' ? 'bg-pop text-onpop' : tone === 'ink' ? 'bg-ink text-bg' : 'text-ink';
   return (
     <button
       onClick={e => { e.stopPropagation(); toggle(); }}
       disabled={!current}
       aria-label={playing ? '暂停' : '播放'}
-      className={`press flex shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${box} ${color} ${className}`}
+      className={`press flex shrink-0 items-center justify-center disabled:opacity-40 ${box} ${color} ${className}`}
     >
       {loading && !playing && current
         ? <Loader2 className={`${ic} motion-safe:animate-spin`} />
@@ -37,18 +37,18 @@ export function TransportRow({ large = false }: { large?: boolean }) {
   return (
     <div className={`flex items-center ${large ? 'justify-between' : 'gap-4'}`}>
       <button onClick={toggleShuffle} aria-label={shuffle ? '关闭随机播放' : '随机播放'} aria-pressed={shuffle} title="随机播放"
-        className={`press flex items-center justify-center rounded-full ${side} ${shuffle ? 'text-accent' : 'text-sub hover:text-ink'}`}>
+        className={`press flex items-center justify-center  ${side} ${shuffle ? 'text-pop-ink' : 'text-sub hover:text-ink'}`}>
         <Shuffle className={ic} />
       </button>
-      <button onClick={prev} aria-label="上一首" className={`press flex items-center justify-center rounded-full text-ink ${skipBox}`}>
+      <button onClick={prev} aria-label="上一首" className={`press flex items-center justify-center  text-ink ${skipBox}`}>
         <SkipBack className={skip} fill="currentColor" strokeWidth={1.5} />
       </button>
-      <PlayButton size={large ? 'lg' : 'md'} tone="ink" />
-      <button onClick={next} aria-label="下一首" className={`press flex items-center justify-center rounded-full text-ink ${skipBox}`}>
+      <PlayButton size={large ? 'lg' : 'md'} tone="pop" />
+      <button onClick={next} aria-label="下一首" className={`press flex items-center justify-center  text-ink ${skipBox}`}>
         <SkipForward className={skip} fill="currentColor" strokeWidth={1.5} />
       </button>
       <button onClick={cycleRepeat} aria-label={repeatLabel} title={repeatLabel}
-        className={`press flex items-center justify-center rounded-full ${side} ${repeat !== 'off' ? 'text-accent' : 'text-sub hover:text-ink'}`}>
+        className={`press flex items-center justify-center  ${side} ${repeat !== 'off' ? 'text-pop-ink' : 'text-sub hover:text-ink'}`}>
         {repeat === 'one' ? <Repeat1 className={ic} /> : <Repeat className={ic} />}
       </button>
     </div>
@@ -76,7 +76,7 @@ export function SeekBar({ compact = false }: { compact?: boolean }) {
   );
   if (compact) {
     return (
-      <div className="flex w-full items-center gap-2.5 text-[11px] tabular-nums text-sub">
+      <div className="num flex w-full items-center gap-2.5 text-[11px] text-sub">
         <span className="w-9 text-right">{fmtTime(time)}</span>{slider}<span className="w-9">{fmtTime(duration)}</span>
       </div>
     );
@@ -84,7 +84,7 @@ export function SeekBar({ compact = false }: { compact?: boolean }) {
   return (
     <div className="w-full text-xs tabular-nums text-sub">
       {slider}
-      <div className="flex justify-between"><span>{fmtTime(time)}</span><span>{fmtTime(duration)}</span></div>
+      <div className="num flex justify-between"><span>{fmtTime(time)}</span><span>{fmtTime(duration)}</span></div>
     </div>
   );
 }
@@ -95,7 +95,7 @@ export function VolumeControl({ className = 'w-32' }: { className?: string }) {
   const Icon = v === 0 ? VolumeX : v < 0.5 ? Volume1 : Volume2;
   return (
     <div className={`flex items-center gap-1 ${className}`}>
-      <button onClick={toggleMute} aria-label={v === 0 ? '取消静音' : '静音'} className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sub hover:text-ink">
+      <button onClick={toggleMute} aria-label={v === 0 ? '取消静音' : '静音'} className="press flex h-8 w-8 shrink-0 items-center justify-center  text-sub hover:text-ink">
         <Icon className="h-[18px] w-[18px]" />
       </button>
       <input

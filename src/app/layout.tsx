@@ -3,9 +3,13 @@ import './globals.css';
 import PlayerProvider from '@/components/PlayerProvider';
 import PlayerBar from '@/components/PlayerBar';
 import FullPlayer from '@/components/FullPlayer';
-import { Sidebar, TabBar } from '@/components/Nav';
+import { TabBar, TopNav } from '@/components/Nav';
+import NowPanel from '@/components/NowPanel';
+import { Space_Grotesk } from 'next/font/google';
 import PwaClient from '@/components/PwaClient';
 import Toast from '@/components/Toast';
+
+const grotesk = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-grotesk', display: 'swap' });
 
 export const metadata: Metadata = {
   title: { default: '听域 TY Music', template: '%s - 听域' },
@@ -17,8 +21,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f6f7' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f0f11' },
+    { media: '(prefers-color-scheme: light)', color: '#f1f1ee' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0b' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -37,15 +41,16 @@ const STRIP_EXTENSION_ATTRS = `(function(){
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN" className={grotesk.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS }} />
       </head>
       <body suppressHydrationWarning>
         <PlayerProvider>
+          <TopNav />
           <div className="flex">
-            <Sidebar />
             <main className="min-w-0 flex-1 pb-safe-player">{children}</main>
+            <NowPanel />
           </div>
           <PlayerBar />
           <TabBar />
