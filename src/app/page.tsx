@@ -52,12 +52,10 @@ function HeroStage({ items }: { items: Sheet[] }) {
       onFocus={() => setFocused(true)}
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false); }}>
       <div aria-hidden="true" className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 scale-125 opacity-80 blur-[90px] saturate-150 dark:opacity-60">
-          {items.map((it, i) => (
-            <div key={it.id} className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${i === index ? 'opacity-100' : 'opacity-0'}`}
-              style={{ backgroundImage: `url("${safeImg(it.artwork)}")` }} />
-          ))}
-        </div>
+        {/* 큰 블러 레이어를 여러 장 겹쳐 크로스페이드하면 전환 1초 동안 매 프레임 전체를 다시 블러링해 화면이 멈춘다.
+            현재 곡 한 장만, 자체 합성 레이어로 그려 8초에 한 번만 다시 그리게 한다. */}
+        <div key={current.id} className="absolute inset-0 scale-125 bg-cover bg-center opacity-80 blur-[60px] saturate-150 transform-gpu motion-safe:animate-[fade-in_0.8s_ease-out] dark:opacity-60"
+          style={{ backgroundImage: `url("${safeImg(current.artwork)}")` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-paper/30 via-paper/70 to-paper" />
       </div>
 

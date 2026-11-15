@@ -1,6 +1,54 @@
 import type { Album, Artist, CollectionKind, Paged, Sheet, Song, TopListGroup } from './types';
 
-export async function apiCall<T>(action: string, args: unknown[] = []): Promise<T> {
+// 브라우저는 HTTP/1.1 에서 같은 호스트에 최대 6개 연결만 연다. 느린 외부 API 요청이 이 슬롯을 다 차지하면
+// 메뉴 이동(페이지 RSC 요청)·이미지·오디오가 뒤에서 대기해 클릭이 먹통처럼 느껴지므로 동시 요청 수를 제한한다.
+// 앨범아트 보완 같은 부가 요청은 low 우선순위로 가장 나중에, 최대 1개씩만 처리한다.
+const MAX_ACTIVE = 3;
+const MAX_LOW = 1;
+let active = 0;
+let activeLow = 0;
+const queue: { low: boolean; run: () => void }[] = [];
+
+function pump() {
+  for (let i = 0; i < queue.length && active < MAX_ACTIVE; ) {
+    const job = queue[i];
+    if (job.low && activeLow >= MAX_LOW) { i++; continue; }
+    queue.splice(i, 1);
+    job.run();
+  }
+}
+
+function schedule<T>(task: () => Promise<T>, low: boolean): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const job = {
+      low,
+      run: () => {
+        active++;
+        if (low) activeLow++;
+        task().then(resolve, reject).finally(() => {
+          active--;
+          if (low) activeLow--;
+          pump();
+        });
+      },
+    };
+    if (low) queue.push(job);
+    else {
+      // 일반 요청은 대기 중인 low 요청보다 앞에 둔다
+      const firstLow = queue.findIndex(j => j.low);
+      if (firstLow < 0) queue.push(job); else queue.splice(firstLow, 0, job);
+    }
+    pump();
+  });
+}
+
+export function apiCall<T>(action: string, args: unknown[] = [], opts: { low?: boolean } = {}): Promise<T> {
+  // 재생 주소는 사용자가 기다리는 요청이므로 대기열을 건너뛴다
+  if (action === 'getMediaSource') return rawApiCall<T>(action, args);
+  return schedule(() => rawApiCall<T>(action, args), !!opts.low);
+}
+
+async function rawApiCall<T>(action: string, args: unknown[]): Promise<T> {
   const res = await fetch('/api/music', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -29,8 +77,8 @@ export function toSong(raw: Partial<Song> & { id: string | number }): Song {
 export type SearchType = 'music' | 'album' | 'artist' | 'sheet';
 type SearchResult = { music: Song; album: Album; artist: Artist; sheet: Sheet };
 
-export async function search<K extends SearchType>(query: string, page: number, type: K): Promise<Paged<SearchResult[K]>> {
-  const r = await apiCall<Paged<SearchResult[K]>>('search', [query, page, type]);
+export async function search<K extends SearchType>(query: string, page: number, type: K, low = false): Promise<Paged<SearchResult[K]>> {
+  const r = await apiCall<Paged<SearchResult[K]>>('search', [query, page, type], { low });
   const data = (r.data || []) as SearchResult[K][];
   return { isEnd: r.isEnd ?? data.length === 0, data: type === 'music' ? (data as Song[]).map(toSong) as SearchResult[K][] : data };
 }
@@ -74,12 +122,12 @@ export function getArtwork(song: Song): Promise<string | undefined> {
   if (!artCache.has(song.id)) {
     const p = (async () => {
       try {
-        const r = await search(`${song.title} ${song.artist}`, 1, 'music');
+        const r = await search(`${song.title} ${song.artist}`, 1, 'music', true);
         const hit = r.data.find(x => x.id === song.id && x.artwork) || r.data.find(x => x.title === song.title && x.artwork);
         if (hit?.artwork) return hit.artwork;
       } catch { /* 곡 정보 API 로 대체 */ }
       try {
-        const r = await apiCall<{ artwork?: string }>('getMusicInfo', [song]);
+        const r = await apiCall<{ artwork?: string }>('getMusicInfo', [song], { low: true });
         return r.artwork;
       } catch {
         return undefined;

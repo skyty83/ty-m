@@ -76,7 +76,7 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* 胶片颗粒: 固定层, 不随滚动重绘 */
+  /* 胶片颗粒: 固定层. 触屏设备上全屏覆盖层的合成开销明显, 只在桌面显示 */
   body::after {
     content: '';
     position: fixed;
@@ -86,6 +86,8 @@
     opacity: var(--grain-opacity);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
+
+  @media (pointer: coarse) { body::after { display: none; } }
 
   ::selection { background: var(--accent); color: var(--on-accent); }
   :focus-visible { outline: 2px solid var(--pop); outline-offset: 3px; }
@@ -110,16 +112,24 @@
   -webkit-text-stroke: 1.5px var(--ink);
 }
 
-/* 顶栏: 页面顶部时透明, 滚动后变为毛玻璃 (CSS scroll-driven, 不支持时直接显示毛玻璃) */
+/* 顶栏: 页面顶部时透明, 滚动后变为毛玻璃 (CSS scroll-driven, 不支持时直接显示毛玻璃)
+ * backdrop-filter 本身不做动画 (每帧重绘整条顶栏, 会卡住主线程), 只对背景层的 opacity 做动画, 由合成器处理 */
 @utility header-glass {
-  background: color-mix(in oklab, var(--paper) 78%, transparent);
-  border-bottom: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
-  @supports (animation-timeline: scroll()) {
-    animation: header-in linear both;
-    animation-timeline: scroll(root);
-    animation-range: 0 140px;
+  isolation: isolate;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: color-mix(in oklab, var(--paper) 86%, transparent);
+    border-bottom: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    @supports (animation-timeline: scroll()) {
+      animation: header-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 140px;
+    }
   }
 }
 
@@ -159,23 +169,21 @@
   }
 }
 
-@keyframes header-in {
-  from { background: transparent; border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
-}
+@keyframes header-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes reveal-in { from { opacity: 0; transform: translateY(36px); } to { opacity: 1; transform: none; } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes musicbar { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pulse-sk { 50% { opacity: 0.55; } }
 
 .marquee:hover .marquee-track,
 .marquee:focus-within .marquee-track { animation-play-state: paused; }
 
 .skeleton {
-  background: linear-gradient(100deg, var(--card-2) 30%, var(--card) 50%, var(--card-2) 70%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  background: var(--card-2);
+  animation: pulse-sk 1.6s ease-in-out infinite;
 }
 
 .musicbar { transform-origin: bottom; animation: musicbar 0.7s ease-in-out infinite; }
